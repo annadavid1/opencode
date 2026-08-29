@@ -16,7 +16,11 @@
 	// "forwardPorts": [],
 
 	// Use 'postCreateCommand' to run commands after the container is created.
-	"postCreateCommand": "bun install"
+	"postCreateCommand": "bun install && curl https://qlty.sh | bash",
+
+	"remoteEnv": {
+		"PATH": "${containerEnv:PATH}:/home/node/.qlty/bin"
+	}
 
 	// Configure tool-specific properties.
 	// "customizations": {},
