@@ -208,7 +208,7 @@ function buildQueriesBase(limit: number, tiers: string[], name: "day" | "week", 
   return query;
 }
 
-function buildQueries(limit: number, tiers: string[]): QuerySpec[] {
+export function buildQueries(limit: number, tiers: string[]): QuerySpec[] {
   const daily = buildQueriesBase(limit, tiers, "day", "date");
   const weekly = buildQueriesBase(limit, tiers, "week", "week");
 

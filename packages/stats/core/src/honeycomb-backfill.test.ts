@@ -1,55 +1,25 @@
 import { describe, expect, test } from "bun:test"
+import { buildQueries } from "./honeycomb-backfill"
+
+type Query = ReturnType<typeof buildQueries>[number]
 
 describe("Honeycomb backfill queries", () => {
-  test("preserves the day and week query contract for every backfill tier", async () => {
-    expect(await queries(["Go", "Free", "Paid"], 1000)).toEqual({
-      tiers: ["Go", "Free", "Paid"],
-      import_hint: "bun src/honeycomb-backfill.ts import --dir downloads",
-      queries: expectedQueries(1000, ["Go", "Free", "Paid"], ["go", "free", "paid"]),
-    })
+  test("preserves the day and week query contract for every backfill tier", () => {
+    expect(buildQueries(1000, ["Go", "Free", "Paid"])).toEqual(
+      expectedQueries(1000, ["Go", "Free", "Paid"], ["go", "free", "paid"]),
+    )
   })
 
-  test("does not add a tier filter for all-tier queries", async () => {
-    expect(await queries(["all"], 7)).toEqual({
-      tiers: ["all"],
-      import_hint: "bun src/honeycomb-backfill.ts import --dir downloads",
-      queries: expectedQueries(7, ["all"], ["all"]),
-    })
+  test("does not add a tier filter for all-tier queries", () => {
+    expect(buildQueries(7, ["all"])).toEqual(expectedQueries(7, ["all"], ["all"]))
   })
 
-  test("keeps the source tier in filters and normalizes it for query names", async () => {
-    expect(await queries(["Trial / Team"], 7)).toEqual({
-      tiers: ["Trial / Team"],
-      import_hint: "bun src/honeycomb-backfill.ts import --dir downloads",
-      queries: expectedQueries(7, ["Trial / Team"], ["trial-team"]),
-    })
+  test("keeps the source tier in filters and normalizes it for query names", () => {
+    expect(buildQueries(7, ["Trial / Team"])).toEqual(expectedQueries(7, ["Trial / Team"], ["trial-team"]))
   })
 })
 
-async function queries(tiers: string[], limit: number) {
-  const child = Bun.spawn(
-    [
-      process.execPath,
-      new URL("./honeycomb-backfill.ts", import.meta.url).pathname,
-      "queries",
-      "--tiers",
-      tiers.join(","),
-      "--limit",
-      limit.toString(),
-    ],
-    { cwd: import.meta.dir, stdout: "pipe", stderr: "pipe" },
-  )
-  const [code, stdout, stderr] = await Promise.all([
-    child.exited,
-    Bun.readableStreamToText(child.stdout),
-    Bun.readableStreamToText(child.stderr),
-  ])
-
-  expect(code, stderr).toBe(0)
-  return JSON.parse(stdout) as unknown
-}
-
-function expectedQueries(limit: number, tiers: string[], nameSegments: string[]) {
+function expectedQueries(limit: number, tiers: string[], nameSegments: string[]): Query[] {
   return [
     ...tiers.flatMap((tier, index) => [
       expectedQuery("model-day", nameSegments[index]!, tier, ["date", "tier", "stat_provider_2", "stat_model_2"], limit),
@@ -78,11 +48,17 @@ function expectedQueries(limit: number, tiers: string[], nameSegments: string[])
   ]
 }
 
-function expectedQuery(importKey: string, nameSegment: string, tier: string, breakdowns: string[], limit: number) {
+function expectedQuery(
+  importKey: Query["importKey"],
+  nameSegment: string,
+  tier: string,
+  breakdowns: string[],
+  limit: number,
+): Query {
   return {
     name: `${importKey}-${nameSegment}`,
     importKey,
-    importFlag: `--${importKey}`,
+    importFlag: `--${importKey}` as Query["importFlag"],
     query: {
       granularity: 0,
       breakdowns,
