@@ -185,43 +185,32 @@ async function importFiles(args: string[]) {
   await upsertGeoRows(db, geoRows, opts.upsertChunkSize)
 }
 
+function buildQueriesBase(limit: number, tiers: string[], name: "day" | "week", metric: "date" | "week") {
+  const query = tiers.flatMap((tier) => [
+    querySpec(
+      `model-${name}`,
+      tier,
+      metricQuery([metric, "tier", "stat_provider_2", "stat_model_2"], limit, tierFilters(tier)),
+    ),
+    querySpec(`provider-${name}`, tier, metricQuery([metric, "tier", "stat_provider_2"], limit, tierFilters(tier))),
+    querySpec(`geo-${name}`, tier, metricQuery([metric, "tier", "country", "continent"], limit, tierFilters(tier))),
+    querySpec(
+      `geo-model-${name}`,
+      tier,
+      metricQuery(
+        [metric, "tier", "stat_provider_2", "stat_model_2", "country", "continent"],
+        limit,
+        tierFilters(tier),
+      ),
+    ),
+  ])
+
+  return query;
+}
+
 function buildQueries(limit: number, tiers: string[]): QuerySpec[] {
-  const daily = tiers.flatMap((tier) => [
-    querySpec(
-      "model-day",
-      tier,
-      metricQuery(["date", "tier", "stat_provider_2", "stat_model_2"], limit, tierFilters(tier)),
-    ),
-    querySpec("provider-day", tier, metricQuery(["date", "tier", "stat_provider_2"], limit, tierFilters(tier))),
-    querySpec("geo-day", tier, metricQuery(["date", "tier", "country", "continent"], limit, tierFilters(tier))),
-    querySpec(
-      "geo-model-day",
-      tier,
-      metricQuery(
-        ["date", "tier", "stat_provider_2", "stat_model_2", "country", "continent"],
-        limit,
-        tierFilters(tier),
-      ),
-    ),
-  ])
-  const weekly = tiers.flatMap((tier) => [
-    querySpec(
-      "model-week",
-      tier,
-      metricQuery(["week", "tier", "stat_provider_2", "stat_model_2"], limit, tierFilters(tier)),
-    ),
-    querySpec("provider-week", tier, metricQuery(["week", "tier", "stat_provider_2"], limit, tierFilters(tier))),
-    querySpec("geo-week", tier, metricQuery(["week", "tier", "country", "continent"], limit, tierFilters(tier))),
-    querySpec(
-      "geo-model-week",
-      tier,
-      metricQuery(
-        ["week", "tier", "stat_provider_2", "stat_model_2", "country", "continent"],
-        limit,
-        tierFilters(tier),
-      ),
-    ),
-  ])
+  const daily = buildQueriesBase(limit, tiers, "day", "date");
+  const weekly = buildQueriesBase(limit, tiers, "week", "week");
 
   return [...daily, ...weekly]
 }
